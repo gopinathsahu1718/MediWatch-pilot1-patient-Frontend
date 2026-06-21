@@ -19,6 +19,29 @@ type SortOrder = "newest" | "oldest";
 
 import { apiFetch, BASE_URL } from "@/lib/api";
 
+function getQuestionStatusColor(value: number, min: number, max: number) {
+  const ratio = max === min ? 0 : (value - min) / (max - min);
+
+  if (ratio <= 0.34) {
+    return {
+      badge: "bg-green-100 text-green-600",
+      chip: "bg-green-100 border-green-300 text-green-600",
+    };
+  }
+
+  if (ratio <= 0.67) {
+    return {
+      badge: "bg-amber-100 text-amber-700",
+      chip: "bg-amber-100 border-amber-300 text-amber-700",
+    };
+  }
+
+  return {
+    badge: "bg-red-100 text-red-600",
+    chip: "bg-red-100 border-red-300 text-red-600",
+  };
+}
+
 type Submission = {
   id: string | null;
   day_number: number;
@@ -110,8 +133,24 @@ export default function HistoryPage() {
   const [imageError, setImageError] = useState("");
   const [uploadingImages, setUploadingImages] = useState(false);
 
+  const [viewerOpen, setViewerOpen] = useState(false);
+
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+
   const MAX_IMAGES = 5;
   const MAX_SIZE = 5 * 1024 * 1024;
+
+  const images = selectedDay?.images || [];
+
+  const nextImage = () => {
+    setActiveImageIndex((prev) =>
+      prev === images.length - 1 ? prev : prev + 1,
+    );
+  };
+
+  const prevImage = () => {
+    setActiveImageIndex((prev) => (prev === 0 ? prev : prev - 1));
+  };
 
   async function fetchHistory() {
     try {
@@ -819,13 +858,19 @@ export default function HistoryPage() {
                               src={`${BASE_URL}${image}`}
                               alt=""
                               className="
-                              h-20
-                              w-full
-                              rounded-2xl
-                              border
-                              border-stone-400
-                              object-cover
-                            "
+                                aspect-square
+                                w-full
+                                rounded-xl
+                                border
+                                border-slate-400
+                                object-cover
+                                cursor-pointer
+                                
+                              "
+                              onClick={() => {
+                                setActiveImageIndex(index);
+                                setViewerOpen(true);
+                              }}
                             />
                           ))}
                         </div>
@@ -898,7 +943,7 @@ export default function HistoryPage() {
                       </div>
                     )}
                   {/* Disease Questions */}
-                  <div>
+                  {/* <div>
                     <div className="mb-2 flex items-center gap-2">
                       <h3 className="text-sm font-semibold">
                         Disease Questions
@@ -969,7 +1014,7 @@ export default function HistoryPage() {
                               text-end
                               
                               text-sm
-                              font-bold block sm:hidden"
+                              font-semibold block sm:hidden"
                             >
                               <span className="bg-blue-50 rounded p-1 mt-1 rounded-2xl">
                                 {getAnswerDisplay(item)}
@@ -980,6 +1025,147 @@ export default function HistoryPage() {
                           )}
                         </div>
                       ))}
+                    </div>
+                  </div> */}
+                  <div>
+                    <div className="mb-3">
+                      <h3 className="text-sm font-semibold">
+                        Disease Questions
+                      </h3>
+                    </div>
+
+                    <div className="space-y-3">
+                      {selectedDay.answers?.map((item, index) => {
+                        const colors = getQuestionStatusColor(
+                          item.value,
+                          item.min_value,
+                          item.max_value,
+                        );
+
+                        return (
+                          <div
+                            key={item.question_key}
+                            className="
+              rounded-2xl
+              border
+              border-slate-200
+              bg-slate-50
+              p-4
+            "
+                          >
+                            {/* HEADER */}
+
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p
+                                  className="
+                    text-xs
+                    font-bold
+                    text-blue-600
+                  "
+                                >
+                                  Q{index + 1}
+                                </p>
+
+                                <p
+                                  className="
+                    mt-1
+                    text-sm
+                    text-slate-800
+                  "
+                                >
+                                  {item.question_text}
+                                </p>
+                              </div>
+
+                              <div
+                                className={`
+                  shrink-0
+                  rounded-xl
+                  px-2 py-1
+                  text-xs
+                  font-semibold
+                  ${colors.badge}
+                `}
+                              >
+                                {item.question_type === "selection"
+                                  ? item.selection_label
+                                  : `${item.value}/${item.max_value}`}
+                              </div>
+                            </div>
+
+                            {/* SELECTION */}
+
+                            {item.question_type === "selection" && (
+                              <div
+                                className="
+                  mt-4
+                  flex flex-wrap
+                  gap-1 sm:gap-2
+                "
+                              >
+                                {item.question_options?.map((option) => {
+                                  const selected = option.value === item.value;
+
+                                  return (
+                                    <div
+                                      key={option.value}
+                                      className={`
+                          rounded-full
+                          border
+                          px-2 py-1
+                          text-[8px] sm:text-xs
+                          font-medium
+
+                          ${
+                            selected
+                              ? colors.chip
+                              : "border-slate-200 bg-slate-100 text-slate-400"
+                          }
+                        `}
+                                    >
+                                      {option.label}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* RANGE */}
+
+                            {item.question_type === "range" && (
+                              <div className="mt-4">
+                                <div
+                                  className="
+                    h-2
+                    overflow-hidden
+                    rounded-full
+                    bg-slate-200
+                  "
+                                >
+                                  <div
+                                    className={`
+                      h-full
+                      ${
+                        item.value <= 4
+                          ? "bg-green-500"
+                          : item.value <= 7
+                            ? "bg-amber-500"
+                            : "bg-red-500"
+                      }
+                    `}
+                                    style={{
+                                      width: `${
+                                        (item.value / item.max_value) * 100
+                                      }%`,
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                   {/* Override Questions */}
@@ -998,13 +1184,13 @@ export default function HistoryPage() {
                           {selectedDay.override_answers.map((item, index) => (
                             <div
                               key={item.question_key}
-                              className="rounded-2xl border  p-3"
+                              className="rounded-2xl border  p-4"
                             >
                               <div className="flex items-center justify-between gap-4">
                                 <div className="flex items-center justify-center gap-3">
                                   <div className=" flex items-center gap-2">
                                     <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-50 text-[11px] font-semibold text-blue-600">
-                                      {index + 1}
+                                      Q{index + 1}
                                     </div>
                                   </div>
                                   <p className="text-sm font-medium text-slate-700">
@@ -1034,6 +1220,122 @@ export default function HistoryPage() {
                     )}
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewerOpen && images.length > 0 && (
+        <div
+          className="
+      fixed inset-0 z-50
+      flex items-center justify-center
+      bg-black/50 backdrop-blur-sm
+      p-4
+    "
+        >
+          <div
+            className="
+        w-full max-w-3xl
+        rounded-3xl
+        bg-stone-100
+        overflow-hidden
+        shadow-2xl
+      "
+          >
+            {/* Header */}
+            <div
+              className="
+          flex items-center justify-between
+          border-b px-4 py-3
+        "
+            >
+              <div>
+                <div className="font-semibold text-slate-800">
+                  Recovery Photos
+                </div>
+
+                <div className="text-xs text-slate-500">
+                  {activeImageIndex + 1} / {images.length}
+                </div>
+              </div>
+
+              <button
+                onClick={() => setViewerOpen(false)}
+                className="
+            h-8 w-8 rounded-lg
+            bg-slate-100
+            cursor-pointer
+          "
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Image */}
+            <div className="relative bg-black/90">
+              <img
+                src={`${BASE_URL}${images[activeImageIndex]}`}
+                alt=""
+                className="
+            h-[350px]
+            w-full
+            object-contain
+          "
+              />
+
+              {activeImageIndex > 0 && (
+                <button
+                  onClick={() => setActiveImageIndex(activeImageIndex - 1)}
+                  className="
+              absolute left-3 top-1/2
+              -translate-y-1/2
+              h-10 w-10 rounded-xl
+              bg-white/90 shadow
+            "
+                >
+                  ‹
+                </button>
+              )}
+
+              {activeImageIndex < images.length - 1 && (
+                <button
+                  onClick={() => setActiveImageIndex(activeImageIndex + 1)}
+                  className="
+              absolute right-3 top-1/2
+              -translate-y-1/2
+              h-10 w-10 rounded-xl
+              bg-white/90 shadow
+            "
+                >
+                  ›
+                </button>
+              )}
+            </div>
+
+            {/* Thumbnails */}
+            <div
+              className="
+          flex gap-2 overflow-x-auto
+          p-3
+        "
+            >
+              {images.map((image, index) => (
+                <img
+                  key={index}
+                  src={`${BASE_URL}${image}`}
+                  alt=""
+                  onClick={() => setActiveImageIndex(index)}
+                  className={`
+                h-14 w-14 shrink-0
+                cursor-pointer
+                rounded-xl
+                object-cover
+                border border-stone-400
+                ${index === activeImageIndex ? "ring-2 ring-blue-500" : ""}
+              `}
+                />
+              ))}
             </div>
           </div>
         </div>

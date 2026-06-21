@@ -38,48 +38,68 @@ export default function DailyHealthUpdate() {
   const [imageError, setImageError] = useState("");
 
   const MAX_IMAGES = 5;
-  const MAX_SIZE = 5 * 1024 * 1024;
 
-  const validateFiles = (files: File[]) => {
-    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+  const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
+ 
+
+  const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+
+    if (!files.length) return;
+
+    const allowedTypes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+      "image/heic",
+      "image/heif",
+    ];
 
     const validFiles: File[] = [];
 
     for (const file of files) {
+      console.log({
+        name: file.name,
+        type: file.type,
+        sizeMB: (file.size / 1024 / 1024).toFixed(2),
+      });
+
       if (!allowedTypes.includes(file.type)) {
-        setImageError(`${file.name}: Only JPG, PNG and WEBP are allowed`);
+        setImageError(`${file.name}: Unsupported image format`);
+
         continue;
       }
 
-      if (file.size > MAX_SIZE) {
-        setImageError(`${file.name}: Maximum size is 5MB`);
+      if (file.size > MAX_FILE_SIZE) {
+        setImageError(`${file.name}: Maximum image size is 5MB`);
+
         continue;
       }
 
       validFiles.push(file);
     }
 
-    return validFiles;
-  };
+    const uniqueFiles = validFiles.filter(
+      (file) =>
+        !images.some(
+          (existing) =>
+            existing.name === file.name && existing.size === file.size,
+        ),
+    );
 
-  const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = Array.from(e.target.files || []);
-
-    setImageError("");
-
-    const valid = validateFiles(selected);
-
-    const merged = [...images, ...valid];
+    const merged = [...images, ...uniqueFiles];
 
     if (merged.length > MAX_IMAGES) {
-      setImageError("Maximum 5 images allowed");
-
-      setImages(merged.slice(0, MAX_IMAGES));
+      setImageError(`Maximum ${MAX_IMAGES} images allowed`);
 
       return;
     }
 
     setImages(merged);
+
+    e.target.value = "";
   };
   /* fetch questions on mount */
   useEffect(() => {
@@ -196,6 +216,15 @@ export default function DailyHealthUpdate() {
         return;
       }
 
+      console.log(
+  "Submitting images:",
+  images?.map((f) => ({
+    name: f.name,
+    type: f.type,
+    size: f.size,
+  })),
+);
+
       const res = await submitAnswers(
         {
           answers: diseaseAnswers,
@@ -205,11 +234,20 @@ export default function DailyHealthUpdate() {
       );
       setResult(res);
       setSubmitted(true);
+      setImages([]);
     } catch (e: any) {
+     
       switch (e.status) {
         case 409:
           setError("Today's update already submitted.");
 
+          break;
+        case 413:
+          setError("Uploaded images are too large.");
+          break;
+
+        case 408:
+          setError("Upload timed out. Please try again.");
           break;
 
         case 400:
@@ -658,10 +696,9 @@ export default function DailyHealthUpdate() {
           <input
             hidden
             type="file"
-            accept="image/*"
             multiple
-            capture="environment"
-            disabled={images.length >= 5}
+            accept="image/*"
+            disabled={submitting}
             onChange={handleFiles}
           />
         </label>

@@ -27,6 +27,10 @@ export async function submitAnswers(
     formData.append("images", image);
   });
 
+  for (const [k, v] of formData.entries()) {
+  console.log(k, v);
+}
+
   return await apiFetch("/api/v1/patient/submit", {
     method: "POST",
     body: formData,

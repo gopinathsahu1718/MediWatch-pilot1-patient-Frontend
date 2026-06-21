@@ -289,7 +289,15 @@ export default function OTPLoginPage() {
       REDIRECT
       ==========================================
       */
-      setStep("onboarding");
+      const patient = res.data.patient;
+
+      // First login -> show onboarding
+      if (patient.isFirstLogin) {
+        setStep("onboarding");
+      } else {
+        // Existing user -> go directly to dashboard
+        router.push("/");
+      }
     } catch {
       setError("Invalid OTP");
     } finally {
@@ -377,193 +385,197 @@ export default function OTPLoginPage() {
 
   return (
     <div>
-      {step === "phone" || step === "otp" ? 
+      {step === "phone" || step === "otp" ? (
         <div className="min-h-svh bg-gradient-to-br from-[#081225] to-[#1c3f94] flex items-center justify-center p-5 sm:p-8">
-      
-        <div className="w-full max-w-md flex flex-col">
-        {/* LOGO */}
+          <div className="w-full max-w-md flex flex-col">
+            {/* LOGO */}
 
-        <div className="flex justify-center mb-2 sm:mb-4">
-          <img
-            src="/imageLogo.png"
-            alt="MediWatch Logo"
-            className="w-[150px] sm:w-[200px] md:w-[240px] h-auto object-contain"
-          />
-        </div>
+            <div className="flex justify-center mb-2 sm:mb-4">
+              <img
+                src="/imageLogo.png"
+                alt="MediWatch Logo"
+                className="w-[150px] sm:w-[200px] md:w-[240px] h-auto object-contain"
+              />
+            </div>
 
-        {/* CARD */}
+            {/* CARD */}
 
-        <div className="bg-white rounded-[24px] sm:rounded-[30px] shadow-2xl overflow-hidden  w-full ">
-          {/* PHONE STEP */}
+            <div className="bg-white rounded-[24px] sm:rounded-[30px] shadow-2xl overflow-hidden  w-full ">
+              {/* PHONE STEP */}
 
-          {step === "phone" && (
-            <form onSubmit={handleSendOTP} className="p-6 sm:p-8">
-              <div className="text-center mb-7">
-                <h1 className="text-3xl font-bold text-slate-900">Welcome</h1>
+              {step === "phone" && (
+                <form onSubmit={handleSendOTP} className="p-6 sm:p-8">
+                  <div className="text-center mb-7">
+                    <h1 className="text-3xl font-bold text-slate-900">
+                      Welcome
+                    </h1>
 
-                <p className="text-slate-600 mt-2">
-                  Sign in with OTP verification
-                </p>
-              </div>
-
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-2xl px-4 py-3 mb-5 animate-in fade-in">
-                  {error}
-                </div>
-              )}
-
-              <div className="mb-6">
-                <label className="block text-sm font-medium mb-2 text-slate-800">
-                  Mobile Number
-                </label>
-
-                <div className="relative">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-700 font-semibold">
-                    +91
+                    <p className="text-slate-600 mt-2">
+                      Sign in with OTP verification
+                    </p>
                   </div>
 
-                  <input
-                    type="tel"
-                    value={phone}
-                    maxLength={10}
-                    inputMode="numeric"
-                    placeholder="9876543210"
-                    onChange={(e) =>
-                      setPhone(e.target.value.replace(/\D/g, ""))
-                    }
-                    className={`${inputStyle} pl-16 pr-4`}
-                  />
-                </div>
-              </div>
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-2xl px-4 py-3 mb-5 animate-in fade-in">
+                      {error}
+                    </div>
+                  )}
 
-              <button
-                type="submit"
-                disabled={sendingOTP || phone.length !== 10}
-                className={primaryBtn}
-              >
-                {sendingOTP ? "Sending OTP..." : "Continue"}
-              </button>
-            </form>
-          )}
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium mb-2 text-slate-800">
+                      Mobile Number
+                    </label>
 
-          {/* OTP STEP */}
+                    <div className="relative">
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-700 font-semibold">
+                        +91
+                      </div>
 
-          {step === "otp" && (
-            <div className="p-5 sm:p-8">
-              <button
-                onClick={() => {
-                  setStep("phone");
+                      <input
+                        type="tel"
+                        value={phone}
+                        maxLength={10}
+                        inputMode="numeric"
+                        placeholder="9876543210"
+                        onChange={(e) =>
+                          setPhone(e.target.value.replace(/\D/g, ""))
+                        }
+                        className={`${inputStyle} pl-16 pr-4`}
+                      />
+                    </div>
+                  </div>
 
-                  setOtp(["", "", "", "", "", ""]);
-
-                  setError("");
-                }}
-                className="text-sm font-semibold text-slate-700  hover:text-black transition"
-              >
-                ← Back
-              </button>
-
-              <div className="text-center mb-4">
-                <h1 className="text-xl md:text-2xl font-bold text-slate-900">
-                  Verify OTP
-                </h1>
-
-                <p className="text-slate-500 text-sm mt-3">
-                  Code sent to
-                  <span className="font-semibold text-slate-800">
-                    {" "}
-                    +91 {phone}
-                  </span>
-                </p>
-              </div>
-
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-2xl px-4 py-3 mb-5">
-                  {error}
-                </div>
+                  <button
+                    type="submit"
+                    disabled={sendingOTP || phone.length !== 10}
+                    className={primaryBtn}
+                  >
+                    {sendingOTP ? "Sending OTP..." : "Continue"}
+                  </button>
+                </form>
               )}
 
-              {success && (
-                <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-2xl px-4 py-3 mb-5">
-                  {success}
-                </div>
-              )}
+              {/* OTP STEP */}
 
-              {/* OTP INPUTS */}
+              {step === "otp" && (
+                <div className="p-5 sm:p-8">
+                  <button
+                    onClick={() => {
+                      setStep("phone");
 
-              <div className="flex justify-between gap-2 sm:gap-3 mb-6">
-                {otp.map((digit, i) => (
-                  <input
-                    key={i}
-                    ref={(el) => {
-                      otpRefs.current[i] = el;
+                      setOtp(["", "", "", "", "", ""]);
+
+                      setError("");
                     }}
-                    type="tel"
-                    maxLength={1}
-                    value={digit}
-                    inputMode="numeric"
-                    autoComplete={i === 0 ? "one-time-code" : "off"}
-                    onChange={(e) => handleOTPChange(e.target.value, i)}
-                    onKeyDown={(e) => handleKeyDown(e, i)}
-                    onPaste={handlePaste}
-                    className={`w-10 h-12 sm:w-12 sm:h-16 rounded-xl border text-center text-base sm:text-xl font-bold outline-none transition-all duration-200
+                    className="text-sm font-semibold text-slate-700  hover:text-black transition"
+                  >
+                    ← Back
+                  </button>
+
+                  <div className="text-center mb-4">
+                    <h1 className="text-xl md:text-2xl font-bold text-slate-900">
+                      Verify OTP
+                    </h1>
+
+                    <p className="text-slate-500 text-sm mt-3">
+                      Code sent to
+                      <span className="font-semibold text-slate-800">
+                        {" "}
+                        +91 {phone}
+                      </span>
+                    </p>
+                  </div>
+
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-2xl px-4 py-3 mb-5">
+                      {error}
+                    </div>
+                  )}
+
+                  {success && (
+                    <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-2xl px-4 py-3 mb-5">
+                      {success}
+                    </div>
+                  )}
+
+                  {/* OTP INPUTS */}
+
+                  <div className="flex justify-between gap-2 sm:gap-3 mb-6">
+                    {otp.map((digit, i) => (
+                      <input
+                        key={i}
+                        ref={(el) => {
+                          otpRefs.current[i] = el;
+                        }}
+                        type="tel"
+                        maxLength={1}
+                        value={digit}
+                        inputMode="numeric"
+                        autoComplete={i === 0 ? "one-time-code" : "off"}
+                        onChange={(e) => handleOTPChange(e.target.value, i)}
+                        onKeyDown={(e) => handleKeyDown(e, i)}
+                        onPaste={handlePaste}
+                        className={`w-10 h-12 sm:w-12 sm:h-16 rounded-xl border text-center text-base sm:text-xl font-bold outline-none transition-all duration-200
                     ${
                       digit
                         ? "border-blue-500 bg-blue-50"
                         : "border-slate-300 bg-slate-50"
                     }
                     focus:ring-4 focus:ring-blue-100 focus:border-blue-500`}
-                  />
-                ))}
-              </div>
+                      />
+                    ))}
+                  </div>
 
-              {/* TIMER */}
+                  {/* TIMER */}
 
-              <p className="text-center text-sm text-slate-700 mb-6">
-                {timer > 0 ? (
-                  <>
-                    OTP expires in
-                    <span className="font-semibold text-blue-600 ml-1">
-                      {formatTime(timer)}
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-red-500 font-medium">OTP expired</span>
-                )}
-              </p>
+                  <p className="text-center text-sm text-slate-700 mb-6">
+                    {timer > 0 ? (
+                      <>
+                        OTP expires in
+                        <span className="font-semibold text-blue-600 ml-1">
+                          {formatTime(timer)}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-red-500 font-medium">
+                        OTP expired
+                      </span>
+                    )}
+                  </p>
 
-              {/* VERIFY BUTTON */}
+                  {/* VERIFY BUTTON */}
 
-              <button
-                type="button"
-                onClick={handleVerifyOTP}
-                disabled={verifyingOTP || !isOTPComplete}
-                className={`${primaryBtn} mb-3`}
-              >
-                {verifyingOTP ? "Verifying..." : "Verify OTP"}
-              </button>
+                  <button
+                    type="button"
+                    onClick={handleVerifyOTP}
+                    disabled={verifyingOTP || !isOTPComplete}
+                    className={`${primaryBtn} mb-3`}
+                  >
+                    {verifyingOTP ? "Verifying..." : "Verify OTP"}
+                  </button>
 
-              {/* RESEND BUTTON */}
+                  {/* RESEND BUTTON */}
 
-              <button
-                type="button"
-                onClick={handleResendOTP}
-                disabled={!canResend || resendingOTP}
-                className={secondaryBtn}
-              >
-                {resendingOTP
-                  ? "Sending..."
-                  : canResend
-                    ? "Resend OTP"
-                    : `Resend in ${formatTime(timer)}`}
-              </button>
+                  <button
+                    type="button"
+                    onClick={handleResendOTP}
+                    disabled={!canResend || resendingOTP}
+                    className={secondaryBtn}
+                  >
+                    {resendingOTP
+                      ? "Sending..."
+                      : canResend
+                        ? "Resend OTP"
+                        : `Resend in ${formatTime(timer)}`}
+                  </button>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
-      </div> 
-      
-      </div>: <></>}
-      
+      ) : (
+        <></>
+      )}
 
       {/* Onboarding */}
       {step === "onboarding" && (

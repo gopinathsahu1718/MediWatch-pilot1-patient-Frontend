@@ -3,8 +3,9 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "MediWatch",
+  title: "MediWatch • Patient Portal",
   description: "Healthcare Dashboard",
+  
 };
 
 export default function RootLayout({
@@ -17,6 +18,7 @@ export default function RootLayout({
       <head>
         {/* Standard HTML meta tag */}
         <meta name="theme-color" content="#ffffff" />
+        <link rel="icon" href="/Desktoplogo.png" />
       </head>
 
       <body>{children}</body>
