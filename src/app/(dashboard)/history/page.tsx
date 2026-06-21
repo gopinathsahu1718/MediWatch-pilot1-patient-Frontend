@@ -17,9 +17,10 @@ import { ArrowUpDown } from "lucide-react";
 
 type SortOrder = "newest" | "oldest";
 
-import { apiFetch } from "@/lib/api";
+import { apiFetch, BASE_URL } from "@/lib/api";
 
 type Submission = {
+  id: string | null;
   day_number: number;
   status: "missed" | "submitted";
   submitted_at_ist: string;
@@ -35,7 +36,20 @@ type Submission = {
   answers?: {
     question_key: string;
     question_text: string;
+
+    question_type: "range" | "selection";
+
+    min_value: number;
+    max_value: number;
+
     value: number;
+
+    selection_label?: string;
+
+    question_options?: {
+      label: string;
+      value: number;
+    }[];
   }[];
 
   override_answers?: {
@@ -66,6 +80,19 @@ type AlertItem = {
   submission_day_number?: number;
 };
 
+export async function uploadMoreImages(submissionId: string, images: File[]) {
+  const formData = new FormData();
+
+  images.forEach((img) => {
+    formData.append("images", img);
+  });
+
+  return apiFetch(`/api/v1/patient/submissions/${submissionId}/images`, {
+    method: "PATCH",
+    body: formData,
+  });
+}
+
 export default function HistoryPage() {
   const [history, setHistory] = useState<Submission[]>([]);
 
@@ -80,6 +107,11 @@ export default function HistoryPage() {
   const [error, setError] = useState("");
 
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [imageError, setImageError] = useState("");
+  const [uploadingImages, setUploadingImages] = useState(false);
+
+  const MAX_IMAGES = 5;
+  const MAX_SIZE = 5 * 1024 * 1024;
 
   async function fetchHistory() {
     try {
@@ -115,6 +147,93 @@ export default function HistoryPage() {
       setDetailLoading(false);
     }
   }
+
+  async function handleAdditionalImages(
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    if (!selectedDay?.id) return;
+
+    const files = Array.from(e.target.files || []);
+
+    if (!files.length) return;
+
+    const existingCount = selectedDay.images?.length || 0;
+
+    if (existingCount + files.length > MAX_IMAGES) {
+      setImageError(`Maximum ${MAX_IMAGES} images allowed per submission`);
+
+      e.target.value = "";
+
+      return;
+    }
+
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+
+    for (const file of files) {
+      if (!allowedTypes.includes(file.type)) {
+        setImageError(`${file.name}: Only JPG, PNG and WEBP are allowed`);
+
+        e.target.value = "";
+
+        return;
+      }
+
+      if (file.size > MAX_SIZE) {
+        setImageError(`${file.name}: Maximum size is 5MB`);
+
+        e.target.value = "";
+
+        return;
+      }
+    }
+
+    try {
+      setUploadingImages(true);
+
+      const res = await uploadMoreImages(selectedDay.id, files);
+
+      setSelectedDay((prev) =>
+        prev
+          ? {
+              ...prev,
+              images: res.allImageUrls,
+            }
+          : prev,
+      );
+
+      setHistory((prev) =>
+        prev.map((item) =>
+          item.id === selectedDay.id
+            ? {
+                ...item,
+                images: res.allImageUrls,
+              }
+            : item,
+        ),
+      );
+    } catch (err: any) {
+      if (err.status === 400) {
+        setImageError(err.message);
+
+        return;
+      }
+
+      setImageError("Failed to upload images");
+    } finally {
+      setUploadingImages(false);
+      e.target.value = "";
+    }
+  }
+
+  useEffect(() => {
+    if (!imageError) return;
+
+    const timer = setTimeout(() => {
+      setImageError("");
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [imageError]);
 
   useEffect(() => {
     fetchHistory();
@@ -186,6 +305,14 @@ export default function HistoryPage() {
 
     return sortOrder === "newest" ? bTime - aTime : aTime - bTime;
   });
+
+  function getAnswerDisplay(item: any) {
+    if (item.question_type === "selection") {
+      return item.selection_label ?? String(item.value);
+    }
+
+    return `${item.value}/${item.max_value}`;
+  }
 
   const selectedDayAlerts =
     selectedDay && selectedDay.status !== "missed"
@@ -672,6 +799,104 @@ export default function HistoryPage() {
                       </div>
                     </div>
                   )}
+                  {/* Display Images  */}
+                  <div className="mb-2 w-full gap-2">
+                    {selectedDay.images?.length > 0 && (
+                      <div className="w-full">
+                        <div className=" text-sm font-semibold flex justify-between">
+                          <div>Recovery Photos</div>
+                          <div>{selectedDay.images.length}/5</div>
+                        </div>
+                        <p className="mb-4 text-[10px] text-slate-500">
+                          Optional, Upload photos to help your doctor monitor
+                          healing and recovery progress.
+                        </p>
+
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 ">
+                          {selectedDay.images.map((image, index) => (
+                            <img
+                              key={index}
+                              src={`${BASE_URL}${image}`}
+                              alt=""
+                              className="
+                              h-20
+                              w-full
+                              rounded-2xl
+                              border
+                              border-stone-400
+                              object-cover
+                            "
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {imageError && (
+                    <div
+                      className="
+                      
+                      rounded-xl bg-red-500
+                      px-4 py-3 text-xs
+                      font-medium text-white
+                      shadow-lg
+                    "
+                    >
+                      {imageError}
+                    </div>
+                  )}
+                  {selectedDay.status === "submitted" &&
+                    selectedDay.images?.length < 5 && (
+                      <div className="mt-4">
+                        <label
+                          className={`
+    flex h-24 cursor-pointer
+    items-center justify-center
+    rounded-2xl border-2 border-dashed
+    transition-colors
+    ${
+      uploadingImages
+        ? "border-blue-300 bg-blue-50"
+        : "border-slate-300 hover:border-blue-300 hover:bg-blue-50"
+    }
+  `}
+                        >
+                          <input
+                            hidden
+                            type="file"
+                            multiple
+                            accept="image/*"
+                            onChange={handleAdditionalImages}
+                          />
+
+                          {uploadingImages ? (
+                            <div className="flex flex-col items-center gap-2">
+                              <div
+                                className="
+          h-6 w-6
+          animate-spin
+          rounded-full
+          border-2
+          border-blue-600
+          border-t-transparent
+        "
+                              />
+                              <span className="text-xs text-blue-600">
+                                Uploading...
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center gap-1">
+                              <span className="text-2xl">📷</span>
+
+                              <span className="text-xs font-medium text-slate-700 cursor-pointer">
+                                Add Photos
+                              </span>
+                            </div>
+                          )}
+                        </label>
+                      </div>
+                    )}
                   {/* Disease Questions */}
                   <div>
                     <div className="mb-2 flex items-center gap-2">
@@ -699,20 +924,60 @@ export default function HistoryPage() {
                               </p>
                             </div>
 
-                            <div
-                              className="
-              flex h-6 w-6 shrink-0
-              items-center justify-center
+                            {item.question_type == "range" ? (
+                              <div
+                                className="
+              flex-1 h-6 w-6 shrink-0
+              justify-end
               rounded-2xl
               bg-blue-50
               text-sm
-              font-bold
+              font-semibold
               
             "
-                            >
-                              {item.value}/10
-                            </div>
+                              >
+                                {getAnswerDisplay(item)}
+                              </div>
+                            ) : (
+                              <></>
+                            )}
+
+                            {item.question_type == "selection" ? (
+                              <div
+                                className="
+                              shrink-0
+                              justify-end
+                              rounded-2xl
+                              
+                              text-sm
+                              font-semibold hidden sm:block"
+                              >
+                                <span className="bg-blue-50 rounded p-1 mt-1 rounded-2xl">
+                                  {getAnswerDisplay(item)}
+                                </span>
+                              </div>
+                            ) : (
+                              <></>
+                            )}
                           </div>
+                          {item.question_type == "selection" ? (
+                            <div
+                              className="
+                              shrink-0
+                              items-end
+                              rounded-2xl
+                              text-end
+                              
+                              text-sm
+                              font-bold block sm:hidden"
+                            >
+                              <span className="bg-blue-50 rounded p-1 mt-1 rounded-2xl">
+                                {getAnswerDisplay(item)}
+                              </span>
+                            </div>
+                          ) : (
+                            <></>
+                          )}
                         </div>
                       ))}
                     </div>

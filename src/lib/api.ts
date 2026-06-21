@@ -4,7 +4,7 @@ export const BASE_URL =
   "https://api.mediwatch.in";
 
 const REQUEST_TIMEOUT =
-  15000;
+  60000;
 
 let authRedirecting = false;
 

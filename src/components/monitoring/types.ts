@@ -1,17 +1,19 @@
 export interface SymptomQuestion {
   question_key: string;
   question_text: string;
-  question_type: "range" | "boolean";
-  min_value?: number;
-  max_value?: number;
-}
-
-
-
-export interface DiseaseQuestion extends SymptomQuestion {
-  question_type: "range";
+  question_type: "range" | "boolean" | "selection";
   min_value: number;
   max_value: number;
+  question_options?: QuestionOption[];
+}
+
+export interface QuestionOption {
+  label: string;
+  value: number;
+}
+
+export interface DiseaseQuestion extends SymptomQuestion {
+  question_type: "range" | "selection";
 }
 
 export interface OverrideQuestion extends SymptomQuestion {
@@ -38,6 +40,7 @@ export interface SubmissionResult {
   diseaseScore: number;
   overrideTriggered: boolean;
   message: string;
+  images?: string[];
 }
 
 export type Answers = Record<string, number | boolean>;
@@ -69,5 +72,3 @@ export interface RangeQuestionProps {
   value: number | undefined;
   onChange: (val: number) => void;
 }
-
-

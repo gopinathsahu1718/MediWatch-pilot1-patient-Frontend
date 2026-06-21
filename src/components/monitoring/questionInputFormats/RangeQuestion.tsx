@@ -2,12 +2,18 @@ import { SEG_COLORS, LABEL_COLORS } from "../constants";
 import { getLabel } from "../helpers";
 import { RangeQuestionProps } from "../types";
 
-export default function RangeQuestion({autoScrollEnabled,  question, value, onChange }: RangeQuestionProps) {
-    
+export default function RangeQuestion({
+  autoScrollEnabled,
+  question,
+  value,
+  onChange,
+}: RangeQuestionProps) {
+  const min = question.min_value;
+  const max = question.max_value;
+
+  const values = Array.from({ length: max - min + 1 }, (_, i) => min + i);
   return (
     <div>
-      
-
       {/* Emoji row */}
       <div
         style={{
@@ -62,7 +68,7 @@ export default function RangeQuestion({autoScrollEnabled,  question, value, onCh
             zIndex: 2,
           }}
         >
-          {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => {
+          {values.map((n) => {
             const isActive = n === value;
             const ni = getLabel(n);
             return (
@@ -158,14 +164,16 @@ export default function RangeQuestion({autoScrollEnabled,  question, value, onCh
       >
         <span style={{ color: "#7c3aed", fontSize: 12 }}>✦</span>
 
-        {autoScrollEnabled ? <span style={{ fontSize: 11, color: "#7c3aed" }}>
-          We&apos;ll save this and show you the next question automatically
-        </span> : <span style={{ fontSize: 11, color: "#7c3aed" }}>
-          Manually select next question or switch to auto mode.
-        </span> }
-        
+        {autoScrollEnabled ? (
+          <span style={{ fontSize: 11, color: "#7c3aed" }}>
+            We&apos;ll save this and show you the next question automatically
+          </span>
+        ) : (
+          <span style={{ fontSize: 11, color: "#7c3aed" }}>
+            Manually select next question or switch to auto mode.
+          </span>
+        )}
       </div>
     </div>
   );
 }
-

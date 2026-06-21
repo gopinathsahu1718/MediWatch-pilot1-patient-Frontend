@@ -5,6 +5,7 @@ import BooleanQuestion from "@/components/monitoring/questionInputFormats/Boolea
 import RangeQuestion from "@/components/monitoring/questionInputFormats/RangeQuestion";
 import LoadingScreen from "@/components/monitoring/LoadingScreen";
 import ErrorScreen from "@/components/monitoring/ErrorScreen";
+import SelectionQuestion from "@/components/monitoring/questionInputFormats/SelectionQuestion";
 import {
   UnifiedQuestion,
   Answers,
@@ -16,7 +17,7 @@ import {
   fetchSymptomQuestions,
   submitAnswers,
 } from "@/components/monitoring/apihelper";
-import { getLabel } from "@/components/monitoring/helpers";
+import { getLabel, getSelectionLabel } from "@/components/monitoring/helpers";
 import ResultScreen from "@/components/monitoring/ResultScreen";
 
 /* ─── Main Component ─── */
@@ -33,7 +34,53 @@ export default function DailyHealthUpdate() {
   const submitRef = useRef<HTMLDivElement | null>(null);
   const [expandedQuestion, setExpandedQuestion] = useState<number>(0);
   const [autoScrollEnabled, setAutoScrollEnabled] = useState<boolean>(true);
+  const [images, setImages] = useState<File[]>([]);
+  const [imageError, setImageError] = useState("");
 
+  const MAX_IMAGES = 5;
+  const MAX_SIZE = 5 * 1024 * 1024;
+
+  const validateFiles = (files: File[]) => {
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+
+    const validFiles: File[] = [];
+
+    for (const file of files) {
+      if (!allowedTypes.includes(file.type)) {
+        setImageError(`${file.name}: Only JPG, PNG and WEBP are allowed`);
+        continue;
+      }
+
+      if (file.size > MAX_SIZE) {
+        setImageError(`${file.name}: Maximum size is 5MB`);
+        continue;
+      }
+
+      validFiles.push(file);
+    }
+
+    return validFiles;
+  };
+
+  const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files || []);
+
+    setImageError("");
+
+    const valid = validateFiles(selected);
+
+    const merged = [...images, ...valid];
+
+    if (merged.length > MAX_IMAGES) {
+      setImageError("Maximum 5 images allowed");
+
+      setImages(merged.slice(0, MAX_IMAGES));
+
+      return;
+    }
+
+    setImages(merged);
+  };
   /* fetch questions on mount */
   useEffect(() => {
     (async () => {
@@ -143,13 +190,22 @@ export default function DailyHealthUpdate() {
         }
       });
 
-      const res = await submitAnswers({
-        answers: diseaseAnswers,
-        overrideAnswers,
-      });
+      if (images.length > 5) {
+        setError("Maximum 5 images allowed.");
+
+        return;
+      }
+
+      const res = await submitAnswers(
+        {
+          answers: diseaseAnswers,
+          overrideAnswers,
+        },
+        images,
+      );
       setResult(res);
       setSubmitted(true);
-    } catch (e : any) {
+    } catch (e: any) {
       switch (e.status) {
         case 409:
           setError("Today's update already submitted.");
@@ -167,6 +223,7 @@ export default function DailyHealthUpdate() {
           break;
 
         default:
+          console.log(e);
           setError(e.message || "Submission failed");
       }
     } finally {
@@ -182,6 +239,8 @@ export default function DailyHealthUpdate() {
     setAutoScrollEnabled(true);
     setResult(null);
     setError("");
+    setImages([]);
+    setImageError("");
   }
 
   /* auto scroll to submit button when all questions answered */
@@ -203,6 +262,16 @@ export default function DailyHealthUpdate() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!imageError) return;
+
+    const timer = setTimeout(() => {
+      setImageError("");
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [imageError]);
 
   function getAnswerDisplay(
     question: UnifiedQuestion,
@@ -239,10 +308,29 @@ export default function DailyHealthUpdate() {
     }
 
     if (typeof value === "number") {
+      if (question.question_type === "selection") {
+        const option = question.question_options?.find(
+          (x) => x.value === value,
+        );
+
+        const info = getSelectionLabel(
+          value,
+          question.min_value,
+          question.max_value,
+        );
+
+        return {
+          text: `${option?.label ?? value} (${info.label})`,
+          emoji: info.emoji,
+          color: info.tc,
+          bg: info.bg,
+        };
+      }
+
       const info = getLabel(value);
 
       return {
-        text: `${value} / 10 (${info.label})`,
+        text: `${value} / ${question.max_value} (${info.label})`,
         emoji: info.emoji,
         color: info.tc,
         bg: info.bg,
@@ -394,7 +482,7 @@ export default function DailyHealthUpdate() {
 
           return (
             <div
-              className="border border-stone-300 "
+              className={`border border-stone-300  `}
               key={qi.question_key}
               style={{
                 background: "#fff",
@@ -491,6 +579,20 @@ export default function DailyHealthUpdate() {
                       value={answers[qi.question_key] as boolean | undefined}
                       onChange={(val) => {
                         handleAnswer(qi.question_key, val);
+
+                        if (autoScrollEnabled) {
+                          setCurrentQ(i);
+                        }
+                      }}
+                    />
+                  ) : qi.question_type === "selection" ? (
+                    <SelectionQuestion
+                      autoScrollEnabled={autoScrollEnabled}
+                      question={qi as DiseaseQuestion}
+                      value={answers[qi.question_key] as number | undefined}
+                      onChange={(val) => {
+                        handleAnswer(qi.question_key, val);
+
                         if (autoScrollEnabled) {
                           setCurrentQ(i);
                         }
@@ -503,6 +605,7 @@ export default function DailyHealthUpdate() {
                       value={answers[qi.question_key] as number | undefined}
                       onChange={(val) => {
                         handleAnswer(qi.question_key, val);
+
                         if (autoScrollEnabled) {
                           setCurrentQ(i);
                         }
@@ -514,6 +617,95 @@ export default function DailyHealthUpdate() {
             </div>
           );
         })}
+      </div>
+
+      <div className="mx-2 mb-5 rounded-2xl border border-slate-300 bg-white p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-indigo-50 text-xl">
+            📸
+          </div>
+
+          <div className="flex-1">
+            <h3 className="text-sm font-semibold text-slate-800">
+              Recovery Photos
+            </h3>
+
+            <p className="mt-1 text-xs text-slate-500">
+              Optional. Upload photos to help your doctor monitor healing and
+              recovery progress.
+            </p>
+          </div>
+
+          <div className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600">
+            {images.length}/5
+          </div>
+        </div>
+
+        <label
+          className={`
+      mt-4 flex cursor-pointer items-center justify-center gap-2
+      rounded-2xl border-dashed 
+      px-3 py-3 text-sm font-medium cursor-pointer shadow  transition-colors
+      ${
+        images.length >= 5
+          ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
+          : "border-slate-300 hover:border-blue-300 hover:bg-blue-50 text-indigo-700"
+      }
+    `}
+        >
+          <span>{images.length === 0 ? "Add Photos" : "Add More Photos"}</span>
+
+          <input
+            hidden
+            type="file"
+            accept="image/*"
+            multiple
+            capture="environment"
+            disabled={images.length >= 5}
+            onChange={handleFiles}
+          />
+        </label>
+
+        <p className="mt-2 text-center text-[11px] text-slate-400">
+          JPG, PNG, WEBP • Max 5MB each
+        </p>
+
+        {images.length > 0 && (
+          <div className="mt-4 grid grid-cols-4 md:grid-cols-5 gap-3">
+            {images.map((file, index) => (
+              <div
+                key={index}
+                className="
+          group relative overflow-hidden
+          rounded-2xl border
+          border-slate-500
+        "
+              >
+                <img
+                  src={URL.createObjectURL(file)}
+                  alt=""
+                  className="h-20 w-full object-fill"
+                />
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setImages((prev) => prev.filter((_, i) => i !== index))
+                  }
+                  className="
+            absolute right-2 top-2
+            flex h-7 w-7 items-center
+            justify-center rounded-full
+            bg-black/70 text-xs
+            font-bold text-white
+          "
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Submit button — shown when all questions including override are answered */}
@@ -543,53 +735,19 @@ export default function DailyHealthUpdate() {
         </div>
       )}
 
-      {/* Footer */}
-      <div
-        style={{
-          margin: "0 16px 24px",
-          background: "#fff",
-          borderRadius: 14,
-          padding: "13px 16px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          boxShadow: "0 1px 8px rgba(59,79,212,.04)",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              minWidth: 36,
-              borderRadius: "50%",
-              background: "#eef1ff",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 17,
-            }}
-          >
-            🔒
-          </div>
-          <div>
-            <p
-              style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: "#1e2a5e",
-                margin: "0 0 2px",
-              }}
-            >
-              Your data is safe with us
-            </p>
-            <p style={{ fontSize: 11, color: "#9aa3c8", margin: 0 }}>
-              Private and used only for your care.
-            </p>
-          </div>
+      {imageError && (
+        <div
+          className="
+      fixed left-4 right-4 top-4 z-50
+      rounded-xl bg-red-500
+      px-4 py-3 text-sm
+      font-medium text-white
+      shadow-lg
+    "
+        >
+          {imageError}
         </div>
-        <span style={{ fontSize: 24 }}>📋</span>
-      </div>
+      )}
     </div>
   );
 }
